@@ -1,0 +1,134 @@
+@name NextGen Movement
+@inputs [Body Seat Turret]:entity [Pod Cam Engine Transmission Gearbox]:wirelink [Forward Left Backward Right Reverse PrevWeapon NextWeapon Fire Reload Zoom OldControl]:number
+@outputs [Handbrake Parked CurrentZoom]:number CurrentWeapon:entity
+@persist Weapons:array [WeaponIndex ZoomFac]:number
+
+##################
+#### SETTINGS ####
+##################
+OLD_CONTROL = 0 | OldControl
+SENSITIVITY = 10
+BRAKE_STRENGTH = 8
+WEAPON_ANGLE_OFFSET = ang(0, 0, 15.6)
+WEAPON_SENSITIVITY = 200
+MAX_ZOOM = 2
+ZOOM_SPEED = 0.1
+##################
+
+if (dupefinished() | first()) { 
+    #include "utils"
+       
+    local Entities = Body:getConnectedEntities()
+    foreach (K, V:entity = Entities) {
+        if (V:acfIsGun()) {
+            Weapons:pushEntity(V)
+        }
+    }
+    
+    CurrentWeapon = Weapons[WeaponIndex | 1, entity]
+}
+
+ZoomFac = clamp(ZoomFac + ZOOM_SPEED * (Zoom ? 1 : -1), 0, 1)
+Parked = !Seat:driver()
+Handbrake = Parked
+Engine["Active", number] = !Parked
+
+if (!Parked) {
+    CurrentZoom = (1 - ZoomFac) + ZoomFac * MAX_ZOOM
+    
+    CurrentWeapon:acfFire(Fire)
+    
+    if (NextWeapon | PrevWeapon) {         
+        if (WeaponIndex + NextWeapon > Weapons:count()) {
+            WeaponIndex = 1
+        } elseif (WeaponIndex - PrevWeapon < 1) {
+            WeaponIndex = Weapons:count()
+        } else {
+            WeaponIndex = WeaponIndex + NextWeapon - PrevWeapon
+        }
+        
+        CurrentWeapon = Weapons[WeaponIndex, entity]
+    } elseif (changed(Reload) & Reload) {
+        CurrentWeapon:acfReload()
+    }
+    
+    Cam["Activated", number] = Pod["Active", number]
+    Cam["Position", vector] = Body:massCenter() + vec(0, 0, 100)
+    Cam["Distance", number] = 150
+    Parked = !Pod["Active", number]
+    Movement = Forward | Left | Backward | Right
+    
+    if (OLD_CONTROL) {
+        Engine["Throttle", number] = (Forward | Backward) * 100
+        
+        if (Forward | Backward) {
+            Gearbox["Left Clutch", number] = Right
+            Gearbox["Left Brake", number] = Right * BRAKE_STRENGTH
+            
+            Gearbox["Right Clutch", number] = Left
+            Gearbox["Right Brake", number] = Left * BRAKE_STRENGTH
+        } else {
+            Gearbox["Left Brake", number] = BRAKE_STRENGTH
+            Gearbox["Right Brake", number] = BRAKE_STRENGTH
+        }
+        
+        if (Forward) {
+            Transmission["Gear", number] = 1
+        } elseif (Backward) {
+            Transmission["Gear", number] = 2
+        } else {
+            Handbrake = 1
+            Transmission["Gear", number] = 0
+        }
+    } else {     
+        Engine["Throttle", number] = (Movement | Reverse) * 100
+        local Keys = clamp(Forward + Left + Backward + Right, 1, 2)
+        
+        local TargetAngle = Cam["CamAng", angle]
+        local TargetAngle = Body:toLocal(ang(
+            TargetAngle:pitch(), 
+            TargetAngle:yaw() + ((Left * 90 + Right * -90) * (Backward ? -1 : 1) / Keys + Backward * 180), 
+            TargetAngle:roll()
+        ))
+        
+        if (Movement) {
+            Handbrake = 0
+            Gearbox["Left Clutch", number] = abs(clamp(TargetAngle:yaw() / SENSITIVITY, -1, 0))
+            Gearbox["Left Brake", number] = abs(clamp(TargetAngle:yaw() / SENSITIVITY, -1, 0)) * BRAKE_STRENGTH
+            
+            Gearbox["Right Clutch", number] = clamp(TargetAngle:yaw() / SENSITIVITY, 0, 1)
+            Gearbox["Right Brake", number] = clamp(TargetAngle:yaw() / SENSITIVITY, 0, 1) * BRAKE_STRENGTH
+        } else {
+            Gearbox["Left Clutch", number] = 0
+            Gearbox["Right Clutch", number] = 0
+            
+            if (Reverse) {    
+                Gearbox["Left Brake", number] = 0
+                Gearbox["Right Brake", number] = 0
+            } else {
+                if (abs(Body:angles():pitch()) >= 30) {
+                    Handbrake = 1
+                } else {
+                    Gearbox["Left Brake", number] = BRAKE_STRENGTH + (BRAKE_STRENGTH / 2) * clamp(abs(Body:angles():pitch()) / 30, 0, 3)
+                    Gearbox["Right Brake", number] = BRAKE_STRENGTH + (BRAKE_STRENGTH / 2) * clamp(abs(Body:angles():pitch()) / 30, 0, 3)
+                }
+            }
+        }
+        
+        if (Movement) {
+            Transmission["Gear", number] = 1
+        } elseif (Reverse) {
+            Transmission["Gear", number] = 2
+        } else {
+            Transmission["Gear", number] = 0
+        }
+    }    
+    
+    AimAngle = Cam["CamAng", angle]
+    BodyOffset = Body:angles():pitch()
+    ClampedAngle = AimAngle:setPitch(clamp(AimAngle:pitch(), -15 + BodyOffset, 15 + BodyOffset))
+        
+    rotate(Turret, ClampedAngle - WEAPON_ANGLE_OFFSET, WEAPON_SENSITIVITY)
+}
+
+runOnTick(1)

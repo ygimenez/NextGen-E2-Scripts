@@ -1,0 +1,421 @@
+@name NextGen HUD
+@inputs [Body Weapon Seat]:entity [Cam EGP Engine]:wirelink [Zoom FLIR]:number
+@persist [Rounds Max Thermal MaxHullIntegrity MaxGBIntegrity]:number [Hull Gearboxes]:array ScrSize:vector2
+
+function string lpad(Text:string, Zeroes:number) {
+    local Out = Text
+    while (Out:length() < Zeroes) {
+        Out = "0" + Out
+    }
+    
+    return Out
+}
+
+if (dupefinished() | first()) {
+    local Entities = Body:getConnectedEntities()
+    
+    foreach (K, V:entity = Entities) {
+        if (V:acfIsGearbox()) {
+            Gearboxes:pushEntity(V)
+            MaxGBIntegrity = MaxGBIntegrity + V:acfPropHealthMax()
+        } elseif (!V:acfName() & V != Body) {
+            Hull:pushEntity(V)
+            MaxHullIntegrity = MaxHullIntegrity + V:acfPropHealthMax()
+        }
+    }
+}
+
+if (changed(FLIR) & FLIR) {
+    Thermal = Thermal ? 0 : 1
+    Cam["FLIR", number] = Thermal
+}
+
+##################
+#### SETTINGS ####
+##################
+NUMERIC_DISPLAY = 0
+COLOR = vec(0, 1, 0)
+HUD_OVERLAY = 1
+##################
+
+Cam["FOV", number] = 90 / Zoom / (Thermal ? 1.5 : 1)
+if (EGP) {
+    if (changed(Seat:driver()) & Seat:driver()) {
+        ScrSize = egpScrSize(Seat:driver()) / 100
+        EGP:egpClear()
+        
+        if (HUD_OVERLAY) {
+            EGP:egpBox(82, ScrSize * 50, ScrSize * 100)
+            EGP:egpColor(82, vec4(255, 255, 255, 100))
+            EGP:egpMaterial(82, "effects/flicker_128")
+            
+            EGP:egpBox(83, ScrSize * 50, ScrSize * 100)
+            EGP:egpMaterial(83, "vgui/zoom")
+            
+            EGP:egpBox(84, ScrSize * 50, ScrSize * -100)
+            EGP:egpMaterial(84, "vgui/zoom")
+        }
+        
+        ## DRAW DASHBOARD
+        if (Weapon) {
+            EGP:egpBox(1, 
+                ScrSize * vec2(100, 100) - vec2(350, 50), 
+                vec2(300, 100)
+            )
+            EGP:egpColor(1, vec4(0, 0, 0, 240))
+            
+            ## FROM 2
+            for (I = 1, 9) {
+                local ID = I + 1
+                
+                EGP:egpLine(ID, 
+                    ScrSize * vec2(100, 100) - vec2(500 - 30 * I, 100), 
+                    ScrSize * vec2(100, 100) - vec2(500 - 30 * I, 0)
+                )
+                EGP:egpColor(ID, vec4(100, 100, 100, 40))
+            }
+            ## TO 10
+            
+            EGP:egpBoxOutline(11, 
+                ScrSize * vec2(100, 100) - vec2(350, 50), 
+                vec2(300, 100)
+            )
+            EGP:egpColor(11, vec4(200, 200, 200, 170) * vec4(COLOR, 1))
+        }
+        
+        EGP:egpBox(12, 
+            ScrSize * vec2(100, 100) - vec2(100, 50), 
+            vec2(200, 100)
+        )
+        EGP:egpColor(12, vec4(0, 0, 0, 240))
+        
+        EGP:egpBox(85, 
+            ScrSize * vec2(100, 100) - vec2(50, 150), 
+            vec2(100, 100)
+        )
+        EGP:egpColor(85, vec4(0, 0, 0, 240))
+        
+        EGP:egpBox(86, 
+            ScrSize * vec2(100, 100) - vec2(15, 300), 
+            vec2(30, 200)
+        )
+        EGP:egpColor(86, vec4(0, 0, 0, 240))
+        
+        EGP:egpBoxOutline(87, 
+            ScrSize * vec2(100, 100) - vec2(15, 300), 
+            vec2(30, 200)
+        )
+        EGP:egpColor(87, vec4(255, 255, 255, 240) * vec4(COLOR, 1))
+        
+        ## DRAW RADAR
+        EGP:egpCircle(13, 
+            ScrSize * vec2(100, 100) - vec2(100, 100), 
+            vec2(100, 100)
+        )
+        EGP:egpColor(13, vec4(200, 200, 200, 170) * vec4(COLOR, 1))
+        EGP:egpAngle(13, 90)
+        
+        EGP:egpCircle(14, 
+            ScrSize * vec2(100, 100) - vec2(100, 100), 
+            vec2(99, 99)
+        )
+        EGP:egpColor(14, vec4(0, 0, 0, 250))
+        
+        ## FROM 15
+        for (I = 1, 9) {
+            local ID = 14 + I
+            local Ang = 180 / 9 * I - 180 / 9 * 5
+            
+            EGP:egpLine(ID, 
+                ScrSize * vec2(100, 100) - vec2(200 - 20 * I, 99 + sqrt(100 ^ 2 - Ang ^ 2)),
+                ScrSize * vec2(100, 100) - vec2(200 - 20 * I, 100 - sqrt(100 ^ 2 - Ang ^ 2))
+            )
+            EGP:egpColor(ID, vec4(100, 100, 100, 40))
+        }
+        ## TO 23
+        
+        ## FROM 24
+        for (I = 1, 9) {
+            local ID = 23 + I
+            local Ang = 180 / 9 * I - 180 / 9 * 5
+            
+            EGP:egpLine(ID, 
+                ScrSize * vec2(100, 100) - vec2(99 + sqrt(100 ^ 2 - Ang ^ 2), 200 - 20 * I),
+                ScrSize * vec2(100, 100) - vec2(100 - sqrt(100 ^ 2 - Ang ^ 2), 200 - 20 * I)
+            )
+            EGP:egpColor(ID, vec4(100, 100, 100, 40))
+        }
+        ## TO 32
+        
+        ## DRAW COMPASS
+        ## FROM 33
+        for (I = 0, 345, 15) {
+            local ID = 33 + I / 15
+            
+            if (I != 0) {
+                local Major = I % 45 == 0
+                local Length = Major ? 15 : 5
+                
+                EGP:egpLine(ID,
+                    vec2(cos(I) * 95, sin(I) * 95),
+                    vec2(cos(I) * (95 - Length), sin(I) * (95 - Length))
+                )
+                EGP:egpColor(ID, vec(255) * COLOR)
+                EGP:egpSize(ID, Major ? 2 : 1)
+                EGP:egpAngle(ID, I)
+                EGP:egpParent(ID, 13)
+            } else {
+                EGP:egpText(ID, "N", vec2(cos(I) * 90, sin(I) * 90))
+                EGP:egpColor(ID, vec(255) * COLOR)
+                EGP:egpAngle(ID, 90)
+                EGP:egpAlign(ID, 1, 1)
+                EGP:egpParent(ID, 13)
+            }
+        }
+        ## TO 56
+        
+        EGP:egpSaveFrame("background")
+    }
+    
+    if (Body) {        
+        ## WEAPON
+        local WeaponHP = !Weapon ? 0 : Weapon:acfPropHealth() / Weapon:acfPropHealthMax()
+        local WHPColor = vec(255) * ((1 - WeaponHP) * vec(1, 0, 0) + WeaponHP * COLOR)
+        EGP:egpBoxOutline(58,
+            vec2(),
+            vec2(30, 40)
+        )
+        EGP:egpColor(58, WHPColor)
+        EGP:egpAngle(58, -Weapon:angles():yaw())
+        EGP:egpParent(58, 13)
+        
+        EGP:egpBoxOutline(59,
+            vec2(0, 25),
+            vec2(10, 50)
+        )
+        EGP:egpColor(59, WHPColor)
+        EGP:egpParent(59, 58)
+        
+        ## BODY
+        local HullIntegrity = 0
+        foreach (K, V:entity = Hull) {
+            if (V) {
+                HullIntegrity = HullIntegrity + V:acfPropHealth()
+            }
+        }
+        HullIntegrity = clamp(HullIntegrity / MaxHullIntegrity, 0, 1)
+        print(HullIntegrity)
+        local BHPColor = vec(255) * ((1 - HullIntegrity) * vec(1, 0, 0) + HullIntegrity * COLOR)
+        EGP:egpBoxOutline(60,
+            vec2(),
+            vec2(50, 75)
+        )
+        EGP:egpColor(60, BHPColor)
+        EGP:egpAngle(60, -Body:angles():yaw())
+        EGP:egpParent(60, 13)
+        
+        ## HP BAR
+        EGP:egpLine(88, 
+            ScrSize * vec2(100, 100) - vec2(15, 396) + vec2(0, 192) * (1 - HullIntegrity), 
+            ScrSize * vec2(100, 100) - vec2(15, 204)
+        )
+        EGP:egpSize(88, 24)
+        EGP:egpColor(88, vec(255) * COLOR)
+        
+        ## WEAPON INFO        
+        EGP:egpText(61, Weapon:acfName(), vec2(-150, -50) + vec2(10, 10))
+        EGP:egpFont(61, "Courier New", 25)
+        EGP:egpColor(61, vec(255) * COLOR)
+        EGP:egpParent(61, 1)
+        
+        EGP:egpBoxOutline(62, 
+            vec2(-94, 25), 
+            vec2(100, 40)
+        )
+        EGP:egpColor(62, vec4(0, 0, 0, 0))
+        EGP:egpParent(62, 1)
+    
+        if (Weapon) {
+            ## CROSSHAIR
+            EGP:egpCircleOutline(63,
+                ScrSize * vec2(50),
+                ScrSize:y() * vec2(15) * Zoom
+            )
+            EGP:egpColor(63, vec4())
+            
+            local Rad = 2 * pi() * EGP:egpSize(63):x()
+            local MilRad = Rad / 1000
+            
+            EGP:egpLine(64,
+                vec2(MilRad * 10, 0),
+                vec2(MilRad * 100, 0)
+            )
+            EGP:egpSize(64, 2)
+            EGP:egpColor(64, vec4(255, 255, 255, 150) * vec4(COLOR, 1))
+            EGP:egpParent(64, 63)
+            
+            EGP:egpLine(65,
+                vec2(-MilRad * 10, 0),
+                vec2(-MilRad * 100, 0)
+            )
+            EGP:egpSize(65, 2)
+            EGP:egpColor(65, vec4(255, 255, 255, 150) * vec4(COLOR, 1))
+            EGP:egpParent(65, 63)
+            
+            EGP:egpLine(66,
+                vec2(0, MilRad * 5),
+                vec2(0, MilRad * 100)
+            )
+            EGP:egpSize(66, 2)
+            EGP:egpColor(66, vec4(255, 255, 255, 150) * vec4(COLOR, 1))
+            EGP:egpParent(66, 63)
+            
+            ## RANGE MARKERS            
+            ## FROM 67
+            for (I = 0, 4) {
+                local ID = 67 + I
+                local ID2 = 72 + I
+                
+                EGP:egpLine(ID,
+                    vec2(40, 0) + vec2(MilRad * 10 * (I + 1)) * vec2(0.5, 1),
+                    vec2(10, 0) + vec2(MilRad * 10 * (I + 1)) * vec2(0.5, 1)
+                )
+                EGP:egpColor(ID, vec4(255, 255, 255, 150) * vec4(COLOR, 1))
+                EGP:egpParent(ID, 63)
+                
+                EGP:egpLine(ID2,
+                    vec2(-40, 0) + vec2(MilRad * 10 * (I + 1)) * vec2(-0.5, 1),
+                    vec2(-10, 0) + vec2(MilRad * 10 * (I + 1)) * vec2(-0.5, 1)
+                )
+                EGP:egpColor(ID2, vec4(255, 255, 255, 150) * vec4(COLOR, 1))
+                EGP:egpParent(ID2, 63)
+            }
+            ## TO 76
+            
+            ## RETICLE
+            local WpnAng = Cam["CamAng", angle] - Weapon:angles() + ang(45, 45, 0)
+            if (WpnAng >= ang(0, 0, WpnAng:roll()) & WpnAng <= ang(90, 90, WpnAng:roll())) {
+                EGP:egpCircleOutline(77,
+                    ScrSize * vec2(WpnAng:yaw() / 90 * 100, 100 - WpnAng:pitch() / 90 * 100),
+                    vec2(Weapon:acfSpread() * MilRad * 25)
+                )
+                EGP:egpColor(77, vec4(255, 255, 255, 150) * vec4(COLOR, 1))
+            }
+            
+            EGP:egpBox(78,
+                vec2(25, 25), 
+                vec2(30)
+            )
+            EGP:egpParent(78, 1)
+            EGP:egpMaterial(78, "vgui/ico_friend_indicator_alone")
+            EGP:egpColor(78, Thermal ? vec(50, 175, 255) : vec(50))
+            
+            EGP:egpBox(79,
+                vec2(60, 25), 
+                vec2(40)
+            )
+            EGP:egpParent(79, 1)
+            EGP:egpMaterial(79, "gui/html/refresh")
+            EGP:egpColor(79, !Weapon:acfReady() ? vec(255, 0, 0) : vec(40))
+            
+            local GBIntegrity = 0
+            foreach (K, V:entity = Gearboxes) {
+                if (V) {
+                    GBIntegrity = GBIntegrity + V:acfPropHealth()
+                }
+            }
+            GBIntegrity = clamp(GBIntegrity / MaxGBIntegrity, 0, 1)
+            EGP:egpBox(80,
+                vec2(95, 25), 
+                vec2(30)
+            )
+            EGP:egpParent(80, 1)
+            EGP:egpMaterial(80, "expression 2/cog")
+            EGP:egpColor(80, GBIntegrity < 0.33 ? vec(255, 0, 0) : vec(40))
+            
+            EGP:egpBox(81,
+                vec2(125, 25), 
+                vec2(40)
+            )
+            EGP:egpParent(81, 1)
+            EGP:egpMaterial(81, "HUD/leaderboard_dead")
+            EGP:egpColor(81, HullIntegrity < 0.33 ? vec(255, 0, 0) : vec(40))
+            
+            ## AMMO TRACKER
+            local Update = changed(Weapon) | changed(Weapon:acfMagRounds()) | changed(Weapon:acfMagSize())
+            if ((changed(Seat:driver()) & Seat:driver()) | Update) {
+                Rounds = Weapon:acfMagRounds()
+                Max = Weapon:acfMagSize()
+                
+                if (Rounds > 0 & !Weapon:acfIsReloading()) {
+                    if (!NUMERIC_DISPLAY & Max < 41) {
+                        if (Max == 1) {
+                            EGP:egpText(99, Weapon:acfAmmoType() + "(" + Weapon:acfAmmoCount() + ")", vec2(-150, -30) + vec2(10, 10))
+                        } else {
+                            EGP:egpText(99, Weapon:acfAmmoType() + "(" + lpad(toString(Rounds), toString(Max):length()) + "/" + Max + ")", vec2(-150, -30) + vec2(10, 10))
+                        }
+                        EGP:egpFont(99, "Courier New", 20)
+                        EGP:egpColor(99, vec(255) * COLOR)
+                        EGP:egpParent(99, 1)
+                
+                        local ID = 100
+                        local Rows = floor(Max / 21)
+                        local RoundSize = clamp(10 - (Max * 10 / 20), 2, 10)
+                        
+                        ## FROM 100
+                        for (Y = 0, Rows) {
+                            for (X = 0, min(19, Max - 1 - 20 * Y)) {
+                                local XOffset = -46 + RoundSize / 2 + (X * (RoundSize + 2))
+                                local YOffset = -20 + (40 / (Rows + 1)) * Y
+                                
+                                EGP:egpLine(ID, 
+                                    vec2(XOffset, YOffset),
+                                    vec2(XOffset, YOffset + (40 / (Rows + 1)) - (4 / (Rows + 1)))
+                                )
+                                EGP:egpSize(ID, RoundSize)
+                                EGP:egpColor(ID, (20 * Y + X > Rounds - 1) ? vec(255, 0, 0) : vec(255) * COLOR)
+                                EGP:egpParent(ID, 62)
+                                ID++
+                            }
+                        }
+                        ## TO MAG SIZE
+                    } else {
+                        EGP:egpText(99, Weapon:acfAmmoType(), vec2(-150, -30) + vec2(10, 10))
+                        EGP:egpFont(99, "Courier New", 20)
+                        EGP:egpColor(99, vec(255) * COLOR)
+                        EGP:egpParent(99, 1)
+                        
+                        if (Max == 1) {
+                            EGP:egpText(100, toString(Weapon:acfAmmoCount()), vec2(-46, 20))
+                        } else {
+                            EGP:egpText(100, lpad(toString(Rounds), toString(Max):length()) + "/" + Max, vec2(-46, 20))
+                        }
+                        EGP:egpFont(100, "Courier New", 45)
+                        EGP:egpAlign(100, 0, 2)
+                        EGP:egpColor(100, vec(255) * COLOR)
+                        EGP:egpParent(100, 62)
+                    }
+                } else {
+                    # DOES NOT WORK DUE TO ACF NOT UPDATING RELOAD STATUS
+                    
+                    if (Max == 1) {
+                        EGP:egpText(99, Weapon:acfAmmoType() + "(" + Weapon:acfAmmoCount() + ")", vec2(-150, -30) + vec2(10, 10))
+                    } else {
+                        EGP:egpText(99, Weapon:acfAmmoType() + "(" + lpad(toString(Rounds), toString(Max):length()) + "/" + Max + ")", vec2(-150, -30) + vec2(10, 10))
+                    }
+                    EGP:egpFont(99, "Courier New", 20)
+                    EGP:egpColor(99, vec(255) * COLOR)
+                    EGP:egpParent(99, 1)
+                        
+                    EGP:egpText(100, "RELOAD", vec2(-46, 20))
+                    EGP:egpFont(100, "Courier New", 45)
+                    EGP:egpAlign(100, 0, 2)
+                    EGP:egpColor(100, vec(255, 0, 0))
+                    EGP:egpParent(100, 62)
+                }
+            }
+        }
+    }
+}
+
+interval(200)
