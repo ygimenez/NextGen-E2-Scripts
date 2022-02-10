@@ -1,3 +1,5 @@
+# By KuuHaKu, please don't steal and have fun!
+
 @name NextGen Movement
 @inputs [Body Seat Turret]:entity [Pod Cam Engine Transmission Gearbox]:wirelink [Forward Left Backward Right Reverse PrevWeapon NextWeapon Fire Reload Zoom OldControl]:number
 @outputs [Handbrake Parked CurrentZoom]:number CurrentWeapon:entity
