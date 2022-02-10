@@ -1,0 +1,21 @@
+@name Utils
+
+function rotate(Entity:entity, Target:vector, Force:number) {    
+    Ang = (Target - Entity:massCenter()):toAngle()
+    
+    EntAng = quat(Entity:angles())
+    TarAng = quat(Ang)
+    
+    Sum = Entity:toLocal(rotationVector(TarAng / EntAng) + Entity:massCenter())
+    
+    Entity:applyTorque((Sum * Force - Entity:angVelVector() * 30) * Entity:inertia())
+}
+
+function rotate(Entity:entity, Target:angle, Force:number) {        
+    EntAng = quat(Entity:angles())
+    TarAng = quat(Target)
+    
+    Sum = Entity:toLocal(rotationVector(TarAng / EntAng) + Entity:massCenter())
+    
+    Entity:applyTorque((Sum * Force - Entity:angVelVector() * 30) * Entity:inertia())
+}
